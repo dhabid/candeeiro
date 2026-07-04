@@ -354,7 +354,7 @@ function applyYou(hex){var st=document.documentElement.style;st.setProperty('--y
 function applyIdentity(){var p=IDS[cfg.who||'a'];CFG.me=p.me;CFG.you=p.you;each('.you-name',function(e){e.textContent=p.you;});if($('hdrMe'))$('hdrMe').textContent=p.me;if($('hdrYou'))$('hdrYou').textContent=p.you;document.title=p.me+' → '+p.you;applyYou(p.youA);applyAccent(cfg.accent||p.meA);}
 
 /* tabs */
-function showTab(name){each('.tab',function(t){t.classList.toggle('active',t.id==='tab-'+name);});each('.tabbtn',function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});if(name==='climate')drawChart(HIST[curRange]);window.scrollTo(0,0);}
+function showTab(name){each('.tab',function(t){t.classList.toggle('active',t.id==='tab-'+name);});each('.tabbtn',function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});if(name==='climate')drawChart(HIST[curRange]);if(name==='chat'&&connected)client.publish(base()+'/cmd',JSON.stringify({seen:true}),{qos:0});window.scrollTo(0,0);}
 each('.tabbtn',function(b){b.addEventListener('click',function(){showTab(b.getAttribute('data-tab'));});});
 
 /* battery */
@@ -404,9 +404,9 @@ function fillSettings(S){function chk(n,v){var e=document.querySelector('[name='
   chk('light_enabled',S.light_enabled);chk('light_offnight',S.light_offnight);chk('sleep_enabled',S.sleep_enabled);
   val('light_start',S.light_start);val('light_end',S.light_end);val('sleep_start',S.sleep_start);val('sleep_end',S.sleep_end);
   val('light_color',S.light_color);val('pulse_color',S.pulse_color);
-  var tzs=$('tz');if(tzs&&!tzs.options.length){for(var o=-12;o<=14;o++){var op=document.createElement('option');op.value=o;op.textContent='UTC'+(o>=0?'+':'')+o;if(o===S.tz)op.selected=true;tzs.appendChild(op);}}
+  var tzs=$('tz');if(tzs&&!tzs.options.length){var oa=document.createElement('option');oa.value='auto';oa.textContent='Automático (Portugal)';if(S.tz_auto)oa.selected=true;tzs.appendChild(oa);for(var o=-12;o<=14;o++){var op=document.createElement('option');op.value=o;op.textContent='UTC'+(o>=0?'+':'')+o;if(!S.tz_auto&&o===S.tz)op.selected=true;tzs.appendChild(op);}}
   if(S.accent){var ai=$('accentInput');if(ai)ai.value=S.accent;applyAccent(S.accent);}}
-function collectSettings(){var g=function(n){return document.querySelector('[name='+n+']');};return {tz:parseInt(g('tz').value,10),sleep_enabled:g('sleep_enabled').checked,light_enabled:g('light_enabled').checked,light_offnight:g('light_offnight').checked,sleep_start:g('sleep_start').value,sleep_end:g('sleep_end').value,light_start:g('light_start').value,light_end:g('light_end').value,light_color:g('light_color').value,pulse_color:g('pulse_color').value,accent:$('accentInput').value};}
+function collectSettings(){var g=function(n){return document.querySelector('[name='+n+']');};return {tz:g('tz').value,sleep_enabled:g('sleep_enabled').checked,light_enabled:g('light_enabled').checked,light_offnight:g('light_offnight').checked,sleep_start:g('sleep_start').value,sleep_end:g('sleep_end').value,light_start:g('light_start').value,light_end:g('light_end').value,light_color:g('light_color').value,pulse_color:g('pulse_color').value,accent:$('accentInput').value};}
 var _st;function pushSettings(){cfg.accent=$('accentInput').value;save();if(!connected)return;clearTimeout(_st);_st=setTimeout(function(){client.publish(base()+'/cmd',JSON.stringify({settings:collectSettings()}),{qos:1});},250);}
 (function(){var els=document.querySelectorAll('#setform input,#setform select');for(var i=0;i<els.length;i++){els[i].addEventListener('input',pushSettings);els[i].addEventListener('change',pushSettings);}})();
 (function(){var sw=$('swatches');if(sw){APPLE.forEach(function(c){var b=document.createElement('button');b.type='button';b.setAttribute('data-c',c);b.style.background=c;b.addEventListener('click',function(){$('accentInput').value=c;applyAccent(c);pushSettings();});sw.appendChild(b);});}var inp=$('accentInput');if(inp){inp.addEventListener('input',function(){applyAccent(inp.value);});inp.addEventListener('change',function(){applyAccent(inp.value);});}})();
