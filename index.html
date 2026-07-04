@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<title>Candeeiro do Coração</title>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
+<style>:root{--me1:#FF2D55;--me2:#e0274a;--me-accent:#FF2D55;--you1:#2BB7E0;--you2:#25a1c5;--you-accent:#2BB7E0;}</style>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;}
+:root{
+  --bg:#F2F2F7; --bg2:#FFFFFF; --card:rgba(255,255,255,0.72);
+  --text:#1C1C1E; --text2:#8A8A8E; --text3:#C4C4C8;
+  --border:rgba(0,0,0,0.06); --hair:rgba(0,0,0,0.08);
+  --fill:rgba(118,118,128,0.12); --shadow:0 8px 30px rgba(0,0,0,0.08);
+  --bar:rgba(249,249,251,0.82); --ease:cubic-bezier(.25,.1,.25,1);
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#000; --bg2:#1C1C1E; --card:rgba(28,28,30,0.62);
+    --text:#FFF; --text2:#98989F; --text3:#48484A;
+    --border:rgba(255,255,255,0.10); --hair:rgba(255,255,255,0.10);
+    --fill:rgba(118,118,128,0.24); --shadow:0 8px 30px rgba(0,0,0,0.55);
+    --bar:rgba(22,22,24,0.80);
+  }
+}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display",system-ui,sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100vh; min-height:100dvh;
+  background-image:radial-gradient(130% 60% at 50% 0%,
+     color-mix(in srgb,var(--me1) 22%,transparent),transparent 70%);
+  padding-bottom:calc(env(safe-area-inset-bottom) + 82px);
+}
+.app{width:100%; max-width:440px; margin:0 auto;
+  padding:0 calc(env(safe-area-inset-left) + 16px) 0 calc(env(safe-area-inset-right) + 16px);}
+
+/* top bar */
+.appbar{position:sticky; top:0; z-index:20;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:calc(env(safe-area-inset-top) + 14px) 2px 12px;
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);}
+.appbar .title{font-size:17px; font-weight:700; letter-spacing:-.01em;
+  display:flex; gap:7px; align-items:center;}
+.appbar .arrow{color:var(--text2); font-weight:500;}
+.iconbtn{-webkit-appearance:none; appearance:none; border:none; background:transparent;
+  color:var(--me-accent); padding:6px; cursor:pointer; display:flex; border-radius:12px;}
+.iconbtn:active{opacity:.5;}
+.batt{display:flex; align-items:center; gap:5px; font-size:14px; font-weight:600;
+  font-variant-numeric:tabular-nums; color:var(--text);}
+.batt svg{display:block;}
+
+/* tabs */
+.tab{display:none; padding-top:4px; animation:fade .35s var(--ease);}
+.tab.active{display:block;}
+@keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+.card{background:var(--card);
+  -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border:1px solid var(--border); border-radius:22px; padding:20px;
+  margin-bottom:16px; box-shadow:var(--shadow);}
+.label{display:block; color:var(--text2); font-size:12px; font-weight:600;
+  text-transform:uppercase; letter-spacing:.05em; margin-bottom:12px;}
+.label .you-name,.label .me-name{color:inherit;}
+
+textarea{width:100%; background:transparent; color:var(--text); border:none; outline:none;
+  resize:none; font-size:17px; line-height:1.45; font-family:inherit; min-height:76px;}
+textarea::placeholder{color:var(--text2);}
+
+.btn{-webkit-appearance:none; appearance:none; width:100%; margin-top:8px; padding:16px;
+  border:none; border-radius:16px; font-family:inherit; font-size:17px; font-weight:600;
+  color:#fff; cursor:pointer; background:linear-gradient(135deg,var(--me1),var(--me2));
+  box-shadow:0 6px 20px color-mix(in srgb,var(--me-accent) 45%,transparent);
+  transition:transform .18s var(--ease), filter .18s var(--ease);}
+.btn:active{transform:scale(.96); filter:brightness(.94);}
+.btn.sent{transform:scale(.96); filter:brightness(1.08);}
+.btn.secondary{background:var(--fill); color:var(--me-accent); box-shadow:none;}
+
+.partner{background:linear-gradient(135deg,color-mix(in srgb,var(--you1) 14%,var(--card)),var(--card));
+  border:1px solid color-mix(in srgb,var(--you-accent) 30%,var(--border));}
+.partner .label{color:var(--you-accent);}
+.msg{font-size:19px; line-height:1.4;}
+.env-pill{margin-top:14px; display:inline-flex; align-items:center; gap:8px;
+  font-size:15px; font-weight:600; color:var(--you-accent);
+  background:color-mix(in srgb,var(--you-accent) 13%,transparent);
+  padding:8px 14px; border-radius:12px;}
+.log{color:var(--text2); font-size:12px; line-height:1.7; text-align:center; opacity:.8; padding:4px;}
+
+/* climate */
+.weather-card{text-align:center; padding-top:24px;}
+.big-temp{font-size:78px; font-weight:300; letter-spacing:-.03em; line-height:1;
+  display:inline-flex; align-items:flex-start;}
+.big-temp .deg{font-size:34px; font-weight:300; margin-top:6px;}
+.sub-metrics{margin-top:8px; color:var(--text2); font-size:16px; font-weight:500;}
+.minmax{margin-top:18px; display:flex; justify-content:center; gap:18px; align-items:center;
+  font-size:15px; color:var(--text2);}
+.minmax b{color:var(--text); font-weight:600;}
+.minmax .trend{font-size:20px; color:var(--me-accent);}
+.small-weather .pw-row{font-size:22px; font-weight:500;}
+
+.seg{display:flex; background:var(--fill); border-radius:10px; padding:2px; margin-bottom:14px;}
+.seg button{flex:1; -webkit-appearance:none; appearance:none; border:none; background:transparent;
+  font-family:inherit; font-size:14px; font-weight:600; color:var(--text); padding:8px;
+  border-radius:8px; cursor:pointer; transition:.2s var(--ease);}
+.seg button.active{background:var(--bg2); box-shadow:0 1px 4px rgba(0,0,0,.12);}
+.chart-legend{display:flex; gap:16px; justify-content:flex-end; font-size:12px; color:var(--text2);
+  margin-bottom:6px;}
+.chart-legend .lg::before{content:""; display:inline-block; width:9px; height:9px; border-radius:50%;
+  margin-right:5px; vertical-align:middle;}
+.chart-legend .lg-t::before{background:var(--me-accent);}
+.chart-legend .lg-h::before{background:#32ADE6;}
+.chart svg{width:100%; height:auto; display:block; overflow:visible;}
+.chart .grid{stroke:var(--hair); stroke-width:1;}
+.chart .xl{fill:var(--text2); font-size:9px; font-family:inherit;}
+.empty{color:var(--text2); text-align:center; font-size:14px; padding:34px 10px;}
+
+/* chat */
+.stats-card{display:flex; justify-content:space-around; text-align:center;}
+.stat-n{font-size:30px; font-weight:700; letter-spacing:-.02em; color:var(--me-accent);}
+.stat-l{font-size:12px; color:var(--text2); margin-top:2px;}
+.chat{display:flex; flex-direction:column; gap:3px; padding:2px 2px 20px;
+  max-height:64vh; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.bubble{max-width:78%; padding:9px 14px; border-radius:20px; font-size:16px; line-height:1.35;
+  position:relative; word-wrap:break-word; animation:pop .25s var(--ease);}
+@keyframes pop{from{opacity:0; transform:scale(.94);} to{opacity:1; transform:none;}}
+.bubble.me{align-self:flex-end; color:#fff; border-bottom-right-radius:6px;
+  background:linear-gradient(135deg,var(--me1),var(--me2));}
+.bubble.them{align-self:flex-start; color:#fff; border-bottom-left-radius:6px;
+  background:linear-gradient(135deg,var(--you1),var(--you2));}
+.bubble .bt{display:block; font-size:10px; opacity:.72; margin-top:3px; text-align:right;}
+.bubble.them .bt{text-align:left;}
+
+/* switches / inputs (settings) */
+.row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;}
+.row:last-child{margin-bottom:2px;}
+.lbl{font-size:16px;}
+.times{display:flex; align-items:center; gap:8px; color:var(--text2); font-size:15px;}
+select,input[type=time]{-webkit-appearance:none; appearance:none; font-family:inherit; font-size:16px;
+  color:var(--text); background:var(--fill); border:1px solid var(--border); border-radius:10px; padding:9px 12px;}
+input[type=color]{-webkit-appearance:none; appearance:none; width:46px; height:30px; padding:0;
+  cursor:pointer; border:1px solid var(--border); border-radius:9px; background:transparent;}
+input[type=color]::-webkit-color-swatch-wrapper{padding:3px;}
+input[type=color]::-webkit-color-swatch{border:none; border-radius:6px;}
+.swatches{display:flex; flex-wrap:wrap; gap:12px; margin-top:6px;}
+.swatches button{-webkit-appearance:none; appearance:none; width:30px; height:30px; padding:0;
+  border:none; border-radius:50%; cursor:pointer; transition:transform .15s var(--ease);}
+.swatches button.sel{box-shadow:0 0 0 2px var(--bg2), 0 0 0 4px var(--text);}
+.swatches button:active{transform:scale(.88);}
+.swatches button:focus-visible{outline:2px solid var(--text); outline-offset:3px;}
+.switch{position:relative; width:51px; height:31px; flex:0 0 auto;}
+.switch input{position:absolute; opacity:0; width:0; height:0;}
+.switch .track{position:absolute; inset:0; border-radius:31px; background:rgba(120,120,128,.32); transition:background .2s ease;}
+.switch .track::before{content:""; position:absolute; top:2px; left:2px; width:27px; height:27px;
+  border-radius:50%; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,.3); transition:transform .22s var(--ease);}
+.switch input:checked + .track{background:#34C759;}
+.switch input:checked + .track::before{transform:translateX(20px);}
+
+/* bottom tab bar */
+.tabbar{position:fixed; left:0; right:0; bottom:0; z-index:30;
+  display:flex; justify-content:space-around;
+  padding:8px 12px calc(env(safe-area-inset-bottom) + 8px);
+  background:var(--bar); -webkit-backdrop-filter:saturate(180%) blur(22px);
+  backdrop-filter:saturate(180%) blur(22px); border-top:1px solid var(--hair);}
+.tabbtn{-webkit-appearance:none; appearance:none; border:none; background:transparent; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:4px 18px;
+  color:var(--text2); font-size:10px; font-weight:600; transition:color .2s ease;}
+.tabbtn svg{width:26px; height:26px;}
+.tabbtn.active{color:var(--me-accent);}
+.tabbtn:active{opacity:.6;}
+
+/* settings sheet */
+.sheet{position:fixed; inset:0; z-index:40; visibility:hidden; pointer-events:none;}
+.sheet.open{visibility:visible; pointer-events:auto;}
+.sheet-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.4); opacity:0; transition:opacity .3s var(--ease);}
+.sheet.open .sheet-backdrop{opacity:1;}
+.sheet-card{position:absolute; left:0; right:0; bottom:0; max-height:92vh; overflow-y:auto;
+  background:var(--bg); border-radius:22px 22px 0 0; padding:8px 16px calc(env(safe-area-inset-bottom) + 24px);
+  transform:translateY(100%); transition:transform .34s var(--ease); box-shadow:0 -10px 40px rgba(0,0,0,.3);}
+.sheet.open .sheet-card{transform:none;}
+.sheet-head{display:flex; align-items:center; justify-content:space-between; padding:14px 4px 8px; position:sticky; top:0;}
+.sheet-head h2{font-size:22px; font-weight:700; letter-spacing:-.02em;}
+.done{-webkit-appearance:none; appearance:none; border:none; background:transparent;
+  color:var(--me-accent); font-family:inherit; font-size:17px; font-weight:600; cursor:pointer;}
+.hint{color:var(--text2); font-size:12px; text-align:center; margin-top:10px;}
+</style>
+<style>
+.cdot{width:9px;height:9px;border-radius:50%;background:var(--text2);transition:background .3s ease;}
+.cdot.ok{background:#34C759;}.cdot.warn{background:#FFCC00;}.cdot.bad{background:#FF3B30;}
+.batt{gap:7px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:600;}
+.field input,.field select{width:100%;-webkit-appearance:none;appearance:none;font-family:inherit;font-size:16px;color:var(--text);background:var(--fill);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.note{color:var(--text2);font-size:12px;line-height:1.6;margin-top:6px;}.note b{color:var(--text);}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 92px);transform:translate(-50%,20px);background:rgba(40,40,44,0.96);color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;opacity:0;pointer-events:none;transition:.3s var(--ease);z-index:60;max-width:88%;text-align:center;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="appbar">
+    <button id="gear" class="iconbtn" aria-label="Definições">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <div class="title"><span id="hdrMe"></span><span class="arrow">&#8594;</span><span id="hdrYou"></span></div>
+    <div class="batt"><span class="cdot" id="cdot"></span>
+      <svg width="28" height="14" viewBox="0 0 28 14"><rect x="1" y="2" width="22" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity="0.4" stroke-width="1"/><rect id="battFill" x="2.5" y="3.5" width="0" height="7" rx="1.5" fill="#34C759"/><rect x="24.5" y="5" width="2" height="4" rx="1" fill="currentColor" fill-opacity="0.4"/><path id="battBolt" d="M13 3 L10 8 H12 L11 11 L15 6 H12.5 Z" fill="#fff" stroke="#0007" stroke-width="0.3" style="display:none"/></svg>
+      <span id="battpct">--%</span>
+    </div>
+  </div>
+
+  <section class="tab active" id="tab-home">
+    <div class="card">
+      <span class="label">Mensagem para <span class="you-name"></span></span>
+      <textarea id="msg" placeholder="Escreve algo..."></textarea>
+      <button id="sendbtn" class="btn">Enviar</button>
+    </div>
+    <div class="card partner">
+      <span class="label">Último de <span class="you-name"></span></span>
+      <p class="msg" id="homeLast">Ainda sem mensagens</p>
+      <div class="env-pill" id="homeEnv" style="display:none"></div>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <section class="tab" id="tab-climate">
+    <div class="card weather-card">
+      <span class="label">O teu quarto</span>
+      <div class="big-temp"><span id="cTemp">--</span><span class="deg">&#176;</span></div>
+      <div class="sub-metrics"><span id="cHum">--</span>% humidade</div>
+      <div class="minmax">
+        <span class="trend" id="cTrend">&#8594;</span>
+        <span>Mín:&nbsp;<b id="cTmin">--</b>&#176;</span>
+        <span>Máx:&nbsp;<b id="cTmax">--</b>&#176;</span>
+      </div>
+    </div>
+    <div class="card partner small-weather">
+      <span class="label">Quarto de <span class="you-name"></span></span>
+      <div class="pw-row"><span id="pTemp">--</span>&#176; &#183; <span id="pHum">--</span>%</div>
+    </div>
+    <div class="card">
+      <div class="seg" id="rangeSeg">
+        <button data-range="week" class="active">Semana</button>
+        <button data-range="month">Mês</button>
+      </div>
+      <div class="chart-legend"><span class="lg lg-t">Temp</span><span class="lg lg-h">Humidade</span></div>
+      <div class="chart" id="chart"><div class="empty">A carregar...</div></div>
+    </div>
+  </section>
+
+  <section class="tab" id="tab-chat">
+    <div class="card stats-card">
+      <div><div class="stat-n" id="stBeats">0</div><div class="stat-l">Esta semana</div></div>
+      <div><div class="stat-n" id="stStreak">0</div><div class="stat-l">Dias seguidos</div></div>
+      <div><div class="stat-n" id="stLongest">0</div><div class="stat-l">Recorde</div></div>
+    </div>
+    <div class="chat" id="chat"><div class="empty">A carregar...</div></div>
+  </section>
+
+  <nav class="tabbar">
+    <button class="tabbtn active" data-tab="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
+      <span>Início</span>
+    </button>
+    <button class="tabbtn" data-tab="climate">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5V5a2 2 0 1 1 4 0v8.5a4 4 0 1 1-4 0z"/><circle cx="12" cy="17" r="1.4" fill="currentColor" stroke="none"/></svg>
+      <span>Clima</span>
+    </button>
+    <button class="tabbtn" data-tab="chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.4-4A7.5 7.5 0 1 1 20 11.5z"/></svg>
+      <span>Conversa</span>
+    </button>
+  </nav>
+
+  <div class="sheet" id="sheet">
+    <div class="sheet-backdrop" id="sheetBack"></div>
+    <div class="sheet-card">
+      <div class="sheet-head"><h2>Definições</h2><button class="done" id="sheetClose">Concluído</button></div>
+      <div class="card">
+          <span class="label">Ligação</span>
+          <div class="field"><label>Eu sou</label><select id="cwho"><option value="a">David</option><option value="b">Ines</option></select></div>
+          <div class="field"><label>Servidor (host)</label><input id="chost" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="xxxx.s1.eu.hivemq.cloud"></div>
+          <div class="field"><label>Porta WebSocket</label><input id="cport" type="number" inputmode="numeric" value="8884"></div>
+          <div class="field"><label>Utilizador</label><input id="cuser" type="text" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+          <div class="field"><label>Palavra-passe</label><input id="cpass" type="password" autocomplete="current-password"></div>
+          <button class="btn secondary" id="csave" type="button">Ligar</button>
+          <p class="note">Usa uma credencial HiveMQ separada (com acesso aos tópicos <b>heartbeat/#</b>). Guardada apenas neste dispositivo.</p>
+        </div>
+        <form id="setform">
+        <div class="card">
+          <span class="label">Aspeto</span>
+          <div class="row"><span class="lbl">Cor de destaque</span>
+            <input type="color" name="accent" id="accentInput" value="#FF2D55"></div>
+          <div class="swatches" id="swatches"></div>
+        </div>
+        <div class="card">
+          <span class="label">Luz</span>
+          <div class="row"><span class="lbl">Luz ligada</span>
+            <label class="switch"><input type="checkbox" name="light_enabled"><span class="track"></span></label></div>
+          <div class="row"><span class="lbl">Cor</span><input type="color" name="light_color" value="#ff2d55"></div>
+          <div class="row"><span class="lbl">Desligar à noite</span>
+            <label class="switch"><input type="checkbox" name="light_offnight"><span class="track"></span></label></div>
+          <div class="row"><span class="lbl">Horário</span>
+            <span class="times"><input type="time" name="light_start" value="23:00">&#8594;<input type="time" name="light_end" value="07:00"></span></div>
+        </div>
+        <div class="card">
+          <span class="label">Batida</span>
+          <div class="row"><span class="lbl">Cor enviada a <span class="you-name"></span></span>
+            <input type="color" name="pulse_color" value="#ff2d55"></div>
+        </div>
+        <div class="card">
+          <span class="label">Relógio e ecrã</span>
+          <div class="row"><span class="lbl">Fuso horário</span><select name="tz" id="tz"></select></div>
+          <div class="row"><span class="lbl">Ecrã dorme à noite</span>
+            <label class="switch"><input type="checkbox" name="sleep_enabled"><span class="track"></span></label></div>
+          <div class="row"><span class="lbl">Horas de descanso</span>
+            <span class="times"><input type="time" name="sleep_start" value="00:00">&#8594;<input type="time" name="sleep_end" value="08:00"></span></div>
+          <p class="hint">As alterações aplicam-se de imediato</p>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);};
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function each(sel,fn){Array.prototype.forEach.call(document.querySelectorAll(sel),fn);}
+var KEY='candeeiro_cfg';
+var IDS={a:{me:'David',you:'Ines',meA:'#FF2D55',youA:'#2BB7E0'},
+         b:{me:'Ines', you:'David',meA:'#2BB7E0',youA:'#FF2D55'}};
+var cfg=load(), client=null, connected=false;
+var CFG={me:'',you:'',meA:'#FF2D55',youA:'#2BB7E0'};
+var HIST={week:null,month:null}, curRange='week', settingsFilled=false;
+
+function load(){try{return JSON.parse(localStorage.getItem(KEY))||{};}catch(e){return {};}}
+function save(){localStorage.setItem(KEY,JSON.stringify(cfg));}
+function base(){return 'heartbeat/'+(cfg.who||'a');}
+function toast(t){var el=$('toast');if(!el)return;el.textContent=t;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){el.classList.remove('show');},2200);}
+
+/* accent */
+function shade(hex,f){var n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;function s(x){x=Math.round(x*f);return x<0?0:(x>255?255:x);}return '#'+((1<<24)+(s(r)<<16)+(s(g)<<8)+s(b)).toString(16).slice(1);}
+var APPLE=['#FF2D55','#FF3B30','#FF9500','#FFCC00','#34C759','#30B0C7','#0A84FF','#5856D6','#AF52DE'];
+function markSwatch(hex){each('#swatches button',function(b){b.classList.toggle('sel',b.getAttribute('data-c').toLowerCase()===hex.toLowerCase());});}
+function applyAccent(hex){var st=document.documentElement.style;st.setProperty('--me1',hex);st.setProperty('--me2',shade(hex,0.88));st.setProperty('--me-accent',hex);CFG.meA=hex;markSwatch(hex);if($('tab-climate').classList.contains('active'))drawChart(HIST[curRange]);}
+function applyYou(hex){var st=document.documentElement.style;st.setProperty('--you1',hex);st.setProperty('--you2',shade(hex,0.88));st.setProperty('--you-accent',hex);CFG.youA=hex;}
+
+function applyIdentity(){var p=IDS[cfg.who||'a'];CFG.me=p.me;CFG.you=p.you;each('.you-name',function(e){e.textContent=p.you;});if($('hdrMe'))$('hdrMe').textContent=p.me;if($('hdrYou'))$('hdrYou').textContent=p.you;document.title=p.me+' → '+p.you;applyYou(p.youA);applyAccent(cfg.accent||p.meA);}
+
+/* tabs */
+function showTab(name){each('.tab',function(t){t.classList.toggle('active',t.id==='tab-'+name);});each('.tabbtn',function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});if(name==='climate')drawChart(HIST[curRange]);window.scrollTo(0,0);}
+each('.tabbtn',function(b){b.addEventListener('click',function(){showTab(b.getAttribute('data-tab'));});});
+
+/* battery */
+function setBattery(pct,chg){var f=$('battFill');if(!f)return;var p=(pct==null)?0:Math.max(0,Math.min(100,pct));f.setAttribute('width',(p/100*20).toFixed(1));f.setAttribute('fill',pct==null?'#8a8a8e':(p<=20?'#FF3B30':(p<=50?'#FFCC00':'#34C759')));var bolt=$('battBolt');if(bolt)bolt.style.display=chg?'block':'none';}
+
+/* state -> UI */
+function arrow(v){return v>0?'↑':(v<0?'↓':'→');}
+function applyState(s){
+  if(s.you){each('.you-name',function(e){e.textContent=s.you;});if($('hdrYou'))$('hdrYou').textContent=s.you;}
+  if(s.me&&$('hdrMe'))$('hdrMe').textContent=s.me;
+  var b=s.batt||{};$('battpct').textContent=(b.pct==null?'--':b.pct)+'%';setBattery(b.pct,b.chg);
+  var last=s.last||{};$('homeLast').textContent=last.txt?last.txt:(last.t?'♥':'Ainda sem mensagens');
+  var p=s.partner||{},he=$('homeEnv');
+  if(p.t!=null){he.style.display='inline-flex';he.innerHTML='🌡️ '+Math.round(p.t)+'° · 💧 '+Math.round(p.h)+'%';}else he.style.display='none';
+  var L=s.local||{};
+  $('cTemp').textContent=(L.t==null?'--':Math.round(L.t));$('cHum').textContent=(L.h==null?'--':Math.round(L.h));
+  $('cTmin').textContent=(L.tmin==null?'--':Math.round(L.tmin));$('cTmax').textContent=(L.tmax==null?'--':Math.round(L.tmax));
+  $('cTrend').textContent=arrow(L.tt||0);
+  $('pTemp').textContent=(p.t==null?'--':Math.round(p.t));$('pHum').textContent=(p.h==null?'--':Math.round(p.h));
+  if(s.log)$('log').innerHTML=s.log.map(esc).join('<br>');
+  if(s.settings&&!settingsFilled){fillSettings(s.settings);settingsFilled=true;}
+}
+
+/* chat */
+function fmt(t){var d=new Date(t*1000),h=d.getHours(),m=d.getMinutes();return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}
+function applyChat(d){var st=d.stats||{};$('stBeats').textContent=st.beats||0;$('stStreak').textContent=st.streak||0;$('stLongest').textContent=st.longest||0;var c=$('chat'),msgs=d.msgs||[];if(!msgs.length){c.innerHTML='<div class="empty">Ainda sem mensagens.<br>Envia um coração ♥</div>';return;}var html='';for(var i=0;i<msgs.length;i++){var m=msgs[i];html+='<div class="bubble '+(m.who==='me'?'me':'them')+'">'+(m.txt?esc(m.txt):'♥')+'<span class="bt">'+fmt(m.t)+'</span></div>';}c.innerHTML=html;c.scrollTop=c.scrollHeight;}
+
+/* chart */
+each('#rangeSeg button',function(b){b.addEventListener('click',function(){curRange=b.getAttribute('data-range');each('#rangeSeg button',function(x){x.classList.toggle('active',x===b);});drawChart(HIST[curRange]);});});
+function drawChart(d){var el=$('chart');if(!el)return;d=d||{};var t=d.t||[],tp=d.temp||[],hp=d.hum||[];
+  if(t.length<2){el.innerHTML='<div class="empty">Dados insuficientes.<br>Regista uma leitura a cada 30 min.</div>';return;}
+  var W=320,H=170,PL=6,PR=6,PT=14,PB=22,iw=W-PL-PR,ih=H-PT-PB;var t0=t[0],t1=t[t.length-1],tr=(t1-t0)||1;
+  function rng(a){var mn=Math.min.apply(null,a),mx=Math.max.apply(null,a);if(mn===mx){mn-=1;mx+=1;}var pad=(mx-mn)*0.15;return [mn-pad,mx+pad];}
+  var tR=rng(tp),hR=rng(hp);function X(v){return PL+(v-t0)/tr*iw;}function Yt(v){return PT+ih-(v-tR[0])/(tR[1]-tR[0])*ih;}function Yh(v){return PT+ih-(v-hR[0])/(hR[1]-hR[0])*ih;}
+  var tpts=[],hpts=[];for(var i=0;i<t.length;i++){tpts.push(X(t[i]).toFixed(1)+','+Yt(tp[i]).toFixed(1));hpts.push(X(t[i]).toFixed(1)+','+Yh(hp[i]).toFixed(1));}
+  var area='M'+PL+','+(PT+ih);for(var a=0;a<tpts.length;a++)area+=' L'+tpts[a];area+=' L'+X(t1).toFixed(1)+','+(PT+ih)+' Z';
+  var grid='';for(var g=0;g<=2;g++){var gy=(PT+g/2*ih).toFixed(1);grid+='<line class="grid" x1="'+PL+'" y1="'+gy+'" x2="'+(W-PR)+'" y2="'+gy+'"/>';}
+  var lbl='',n=3;for(var k=0;k<n;k++){var tt=t0+(t1-t0)*k/(n-1),dt=new Date(tt*1000);lbl+='<text class="xl" x="'+X(tt).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(k===0?'start':(k===n-1?'end':'middle'))+'">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</text>';}
+  var tc=CFG.meA||'#FF375F',hc='#32ADE6';
+  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'"><defs><linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+tc+'" stop-opacity="0.35"/><stop offset="1" stop-color="'+tc+'" stop-opacity="0"/></linearGradient></defs>'+grid+'<path d="'+area+'" fill="url(#gt)"/><polyline points="'+hpts.join(' ')+'" fill="none" stroke="'+hc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><polyline points="'+tpts.join(' ')+'" fill="none" stroke="'+tc+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>'+lbl+'</svg>';}
+
+/* send */
+$('sendbtn').addEventListener('click',function(){var t=$('msg').value.trim();var b=$('sendbtn');b.classList.add('sent');setTimeout(function(){b.classList.remove('sent');},500);if(!connected){toast('Sem ligação');return;}client.publish(base()+'/cmd',JSON.stringify({send:t}),{qos:1});$('msg').value='';});
+
+/* settings form */
+function fillSettings(S){function chk(n,v){var e=document.querySelector('[name='+n+']');if(e)e.checked=!!v;}function val(n,v){var e=document.querySelector('[name='+n+']');if(e&&v!=null)e.value=v;}
+  chk('light_enabled',S.light_enabled);chk('light_offnight',S.light_offnight);chk('sleep_enabled',S.sleep_enabled);
+  val('light_start',S.light_start);val('light_end',S.light_end);val('sleep_start',S.sleep_start);val('sleep_end',S.sleep_end);
+  val('light_color',S.light_color);val('pulse_color',S.pulse_color);
+  var tzs=$('tz');if(tzs&&!tzs.options.length){for(var o=-12;o<=14;o++){var op=document.createElement('option');op.value=o;op.textContent='UTC'+(o>=0?'+':'')+o;if(o===S.tz)op.selected=true;tzs.appendChild(op);}}
+  if(S.accent){var ai=$('accentInput');if(ai)ai.value=S.accent;applyAccent(S.accent);}}
+function collectSettings(){var g=function(n){return document.querySelector('[name='+n+']');};return {tz:parseInt(g('tz').value,10),sleep_enabled:g('sleep_enabled').checked,light_enabled:g('light_enabled').checked,light_offnight:g('light_offnight').checked,sleep_start:g('sleep_start').value,sleep_end:g('sleep_end').value,light_start:g('light_start').value,light_end:g('light_end').value,light_color:g('light_color').value,pulse_color:g('pulse_color').value,accent:$('accentInput').value};}
+var _st;function pushSettings(){cfg.accent=$('accentInput').value;save();if(!connected)return;clearTimeout(_st);_st=setTimeout(function(){client.publish(base()+'/cmd',JSON.stringify({settings:collectSettings()}),{qos:1});},250);}
+(function(){var els=document.querySelectorAll('#setform input,#setform select');for(var i=0;i<els.length;i++){els[i].addEventListener('input',pushSettings);els[i].addEventListener('change',pushSettings);}})();
+(function(){var sw=$('swatches');if(sw){APPLE.forEach(function(c){var b=document.createElement('button');b.type='button';b.setAttribute('data-c',c);b.style.background=c;b.addEventListener('click',function(){$('accentInput').value=c;applyAccent(c);pushSettings();});sw.appendChild(b);});}var inp=$('accentInput');if(inp){inp.addEventListener('input',function(){applyAccent(inp.value);});inp.addEventListener('change',function(){applyAccent(inp.value);});}})();
+
+/* sheet */
+$('gear').addEventListener('click',function(){$('sheet').classList.add('open');});
+$('sheetClose').addEventListener('click',function(){$('sheet').classList.remove('open');});
+$('sheetBack').addEventListener('click',function(){$('sheet').classList.remove('open');});
+
+/* connection */
+function setDot(cls){var d=$('cdot');if(d)d.className='cdot '+(cls||'');}
+function complete(){return cfg.host&&cfg.user&&cfg.pass&&cfg.who;}
+function connect(){
+  if(client){try{client.end(true);}catch(e){}client=null;}connected=false;setDot('');
+  if(!complete()){setDot('bad');$('sheet').classList.add('open');return;}
+  if(typeof mqtt==='undefined'){setDot('bad');toast('Sem biblioteca MQTT');return;}
+  var url='wss://'+cfg.host+':'+(cfg.port||8884)+'/mqtt';setDot('warn');
+  client=mqtt.connect(url,{username:cfg.user,password:cfg.pass,clientId:'app_'+(cfg.who||'a')+'_'+Math.random().toString(16).slice(2,8),protocolVersion:4,clean:true,keepalive:30,reconnectPeriod:3000,connectTimeout:8000});
+  client.on('connect',function(){connected=true;setDot('ok');client.subscribe(base()+'/state',{qos:0});client.subscribe(base()+'/chat',{qos:0});client.subscribe(base()+'/history',{qos:0});});
+  client.on('reconnect',function(){connected=false;setDot('warn');});
+  client.on('offline',function(){connected=false;setDot('bad');});
+  client.on('error',function(){connected=false;setDot('bad');});
+  client.on('message',function(topic,payload){var d;try{d=JSON.parse(payload.toString());}catch(e){return;}
+    if(topic===base()+'/state')applyState(d);
+    else if(topic===base()+'/chat')applyChat(d);
+    else if(topic===base()+'/history'){HIST.week=d.week;HIST.month=d.month;if($('tab-climate').classList.contains('active'))drawChart(HIST[curRange]);}});
+}
+function fillConn(){$('cwho').value=cfg.who||'a';$('chost').value=cfg.host||'';$('cport').value=cfg.port||8884;$('cuser').value=cfg.user||'';$('cpass').value=cfg.pass||'';}
+$('csave').addEventListener('click',function(){cfg.who=$('cwho').value;cfg.host=$('chost').value.trim().replace(/^wss?:\/\//,'').replace(/\/.*$/,'');cfg.port=parseInt($('cport').value,10)||8884;cfg.user=$('cuser').value.trim();cfg.pass=$('cpass').value;save();settingsFilled=false;applyIdentity();connect();});
+
+/* init */
+applyIdentity();fillConn();
+if(!complete()){$('sheet').classList.add('open');setDot('bad');}else connect();
+})();
+</script>
+</body>
+</html>
