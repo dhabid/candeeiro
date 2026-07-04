@@ -413,7 +413,7 @@ var _st;function pushSettings(){cfg.accent=$('accentInput').value;save();if(!con
 
 /* sheet */
 $('gear').addEventListener('click',function(){$('sheet').classList.add('open');});
-$('sheetClose').addEventListener('click',function(){$('sheet').classList.remove('open');});
+$('sheetClose').addEventListener('click',function(){commitConn();$('sheet').classList.remove('open');});
 $('sheetBack').addEventListener('click',function(){$('sheet').classList.remove('open');});
 
 /* connection */
@@ -435,7 +435,10 @@ function connect(){
     else if(topic===base()+'/history'){HIST.week=d.week;HIST.month=d.month;if($('tab-climate').classList.contains('active'))drawChart(HIST[curRange]);}});
 }
 function fillConn(){$('cwho').value=cfg.who||'a';$('chost').value=cfg.host||'';$('cport').value=cfg.port||8884;$('cuser').value=cfg.user||'';$('cpass').value=cfg.pass||'';}
-$('csave').addEventListener('click',function(){cfg.who=$('cwho').value;cfg.host=$('chost').value.trim().replace(/^wss?:\/\//,'').replace(/\/.*$/,'');cfg.port=parseInt($('cport').value,10)||8884;cfg.user=$('cuser').value.trim();cfg.pass=$('cpass').value;save();settingsFilled=false;applyIdentity();connect();});
+function readConn(){return {who:$('cwho').value,host:$('chost').value.trim().replace(/^wss?:\/\//,'').replace(/\/.*$/,''),port:parseInt($('cport').value,10)||8884,user:$('cuser').value.trim(),pass:$('cpass').value};}
+function connChanged(c){return c.who!==cfg.who||c.host!==cfg.host||c.port!==cfg.port||c.user!==cfg.user||c.pass!==cfg.pass;}
+function commitConn(){var c=readConn();if(connChanged(c)||!connected){cfg.who=c.who;cfg.host=c.host;cfg.port=c.port;cfg.user=c.user;cfg.pass=c.pass;save();settingsFilled=false;applyIdentity();connect();}}
+$('csave').addEventListener('click',commitConn);
 
 /* init */
 applyIdentity();fillConn();
