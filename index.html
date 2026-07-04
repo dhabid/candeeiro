@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-title" content=" ">
+<link rel="apple-touch-icon" href="icon.png">
 <title>Candeeiro do Coração</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>:root{--me1:#FF2D55;--me2:#e0274a;--me-accent:#FF2D55;--you1:#2BB7E0;--you2:#25a1c5;--you-accent:#2BB7E0;}</style>
@@ -366,7 +368,7 @@ function applyState(s){
   if(s.you){each('.you-name',function(e){e.textContent=s.you;});if($('hdrYou'))$('hdrYou').textContent=s.you;}
   if(s.me&&$('hdrMe'))$('hdrMe').textContent=s.me;
   var b=s.batt||{};$('battpct').textContent=(b.pct==null?'--':b.pct)+'%';setBattery(b.pct,b.chg);
-  var last=s.last||{};$('homeLast').textContent=last.txt?last.txt:(last.t?'♥':'Ainda sem mensagens');
+  var last=s.last||{};$('homeLast').textContent=last.txt?last.txt:(last.t?:'Ainda sem mensagens');
   var p=s.partner||{},he=$('homeEnv');
   if(p.t!=null){he.style.display='inline-flex';he.innerHTML='🌡️ '+Math.round(p.t)+'° · 💧 '+Math.round(p.h)+'%';}else he.style.display='none';
   var L=s.local||{};
@@ -397,7 +399,8 @@ function drawChart(d){var el=$('chart');if(!el)return;d=d||{};var t=d.t||[],tp=d
   el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'"><defs><linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+tc+'" stop-opacity="0.35"/><stop offset="1" stop-color="'+tc+'" stop-opacity="0"/></linearGradient></defs>'+grid+'<path d="'+area+'" fill="url(#gt)"/><polyline points="'+hpts.join(' ')+'" fill="none" stroke="'+hc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/><polyline points="'+tpts.join(' ')+'" fill="none" stroke="'+tc+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>'+lbl+'</svg>';}
 
 /* send */
-$('sendbtn').addEventListener('click',function(){var t=$('msg').value.trim();var b=$('sendbtn');b.classList.add('sent');setTimeout(function(){b.classList.remove('sent');},500);if(!connected){toast('Sem ligação');return;}client.publish(base()+'/cmd',JSON.stringify({send:t}),{qos:1});$('msg').value='';});
+var _lastSend=0;
+$('sendbtn').addEventListener('click',function(){var nowt=Date.now();if(nowt-_lastSend<800)return;_lastSend=nowt;var t=$('msg').value.trim();var b=$('sendbtn');b.classList.add('sent');setTimeout(function(){b.classList.remove('sent');},500);if(!connected){toast('Sem ligação');return;}client.publish(base()+'/cmd',JSON.stringify({send:t}),{qos:1});$('msg').value='';});
 
 /* settings form */
 function fillSettings(S){function chk(n,v){var e=document.querySelector('[name='+n+']');if(e)e.checked=!!v;}function val(n,v){var e=document.querySelector('[name='+n+']');if(e&&v!=null)e.value=v;}
