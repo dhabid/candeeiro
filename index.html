@@ -7,7 +7,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-title" content=" ">
-<link rel="apple-touch-icon" href="icon.png">
 <title>Candeeiro do Coração</title>
 <script src="https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js"></script>
 <style>:root{--me1:#FF2D55;--me2:#e0274a;--me-accent:#FF2D55;--you1:#2BB7E0;--you2:#25a1c5;--you-accent:#2BB7E0;}</style>
@@ -125,7 +124,19 @@ textarea::placeholder{color:var(--text2);}
 .stat-n{font-size:30px; font-weight:700; letter-spacing:-.02em; color:var(--me-accent);}
 .stat-l{font-size:12px; color:var(--text2); margin-top:2px;}
 .chat{display:flex; flex-direction:column; gap:3px; padding:2px 2px 20px;
-  max-height:64vh; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  max-height:56vh; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.composer{position:fixed; left:0; right:0; bottom:calc(env(safe-area-inset-bottom) + 64px); z-index:25;
+  display:none; gap:10px; align-items:center; padding:8px 16px 10px; max-width:440px; margin:0 auto;
+  background:var(--bar); -webkit-backdrop-filter:saturate(180%) blur(20px); backdrop-filter:saturate(180%) blur(20px);
+  border-top:1px solid var(--hair);}
+body.chat-active .composer{display:flex;}
+.composer input{flex:1; -webkit-appearance:none; appearance:none; font-family:inherit; font-size:16px;
+  color:var(--text); background:var(--fill); border:1px solid var(--border); border-radius:20px; padding:10px 16px; outline:none;}
+.send-round{flex:0 0 auto; width:36px; height:36px; padding:0; border:none; border-radius:50%; cursor:pointer;
+  color:#fff; background:linear-gradient(135deg,var(--me1),var(--me2)); display:flex; align-items:center; justify-content:center;
+  transition:transform .15s var(--ease);}
+.send-round:active{transform:scale(.88);}
+.send-round svg{width:20px; height:20px;}
 .bubble{max-width:78%; padding:9px 14px; border-radius:20px; font-size:16px; line-height:1.35;
   position:relative; word-wrap:break-word; animation:pop .25s var(--ease);}
 @keyframes pop{from{opacity:0; transform:scale(.94);} to{opacity:1; transform:none;}}
@@ -263,6 +274,13 @@ input[type=color]::-webkit-color-swatch{border:none; border-radius:6px;}
     <div class="chat" id="chat"><div class="empty">A carregar...</div></div>
   </section>
 
+  <div class="composer" id="composer">
+    <input type="text" id="chatInput" placeholder="Mensagem" enterkeyhint="send" autocomplete="off">
+    <button class="send-round" id="chatSend" aria-label="Enviar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+    </button>
+  </div>
+
   <nav class="tabbar">
     <button class="tabbtn active" data-tab="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/></svg>
@@ -356,7 +374,7 @@ function applyYou(hex){var st=document.documentElement.style;st.setProperty('--y
 function applyIdentity(){var p=IDS[cfg.who||'a'];CFG.me=p.me;CFG.you=p.you;each('.you-name',function(e){e.textContent=p.you;});if($('hdrMe'))$('hdrMe').textContent=p.me;if($('hdrYou'))$('hdrYou').textContent=p.you;document.title=p.me+' → '+p.you;applyYou(p.youA);applyAccent(cfg.accent||p.meA);}
 
 /* tabs */
-function showTab(name){each('.tab',function(t){t.classList.toggle('active',t.id==='tab-'+name);});each('.tabbtn',function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});if(name==='climate')drawChart(HIST[curRange]);if(name==='chat'&&connected)client.publish(base()+'/cmd',JSON.stringify({seen:true}),{qos:0});window.scrollTo(0,0);}
+function showTab(name){each('.tab',function(t){t.classList.toggle('active',t.id==='tab-'+name);});each('.tabbtn',function(b){b.classList.toggle('active',b.getAttribute('data-tab')===name);});document.body.classList.toggle('chat-active',name==='chat');if(name==='climate')drawChart(HIST[curRange]);if(name==='chat'&&connected)client.publish(base()+'/cmd',JSON.stringify({seen:true}),{qos:0});window.scrollTo(0,0);}
 each('.tabbtn',function(b){b.addEventListener('click',function(){showTab(b.getAttribute('data-tab'));});});
 
 /* battery */
@@ -368,7 +386,7 @@ function applyState(s){
   if(s.you){each('.you-name',function(e){e.textContent=s.you;});if($('hdrYou'))$('hdrYou').textContent=s.you;}
   if(s.me&&$('hdrMe'))$('hdrMe').textContent=s.me;
   var b=s.batt||{};$('battpct').textContent=(b.pct==null?'--':b.pct)+'%';setBattery(b.pct,b.chg);
-  var last=s.last||{};$('homeLast').textContent=last.txt?last.txt:(last.t?:'Ainda sem mensagens');
+  var last=s.last||{};$('homeLast').textContent=last.txt?last.txt:(last.t?'♥':'Ainda sem mensagens');
   var p=s.partner||{},he=$('homeEnv');
   if(p.t!=null){he.style.display='inline-flex';he.innerHTML='🌡️ '+Math.round(p.t)+'° · 💧 '+Math.round(p.h)+'%';}else he.style.display='none';
   var L=s.local||{};
@@ -400,7 +418,12 @@ function drawChart(d){var el=$('chart');if(!el)return;d=d||{};var t=d.t||[],tp=d
 
 /* send */
 var _lastSend=0;
-$('sendbtn').addEventListener('click',function(){var nowt=Date.now();if(nowt-_lastSend<800)return;_lastSend=nowt;var t=$('msg').value.trim();var b=$('sendbtn');b.classList.add('sent');setTimeout(function(){b.classList.remove('sent');},500);if(!connected){toast('Sem ligação');return;}client.publish(base()+'/cmd',JSON.stringify({send:t}),{qos:1});$('msg').value='';});
+function appendMine(t){var c=$('chat');if(!c)return;var em=c.querySelector('.empty');if(em)c.innerHTML='';var d=new Date(),hh=(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();c.insertAdjacentHTML('beforeend','<div class="bubble me">'+(t?esc(t):'♥')+'<span class="bt">'+hh+'</span></div>');c.scrollTop=c.scrollHeight;}
+function sendMsg(t){var nowt=Date.now();if(nowt-_lastSend<800)return false;_lastSend=nowt;if(!connected){toast('Sem ligação');return false;}client.publish(base()+'/cmd',JSON.stringify({send:t}),{qos:1});appendMine(t);return true;}
+$('sendbtn').addEventListener('click',function(){var b=$('sendbtn');b.classList.add('sent');setTimeout(function(){b.classList.remove('sent');},500);if(sendMsg($('msg').value.trim()))$('msg').value='';});
+function chatSend(){var t=$('chatInput').value.trim();if(!t)return;if(sendMsg(t))$('chatInput').value='';}
+$('chatSend').addEventListener('click',chatSend);
+$('chatInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();chatSend();}});
 
 /* settings form */
 function fillSettings(S){function chk(n,v){var e=document.querySelector('[name='+n+']');if(e)e.checked=!!v;}function val(n,v){var e=document.querySelector('[name='+n+']');if(e&&v!=null)e.value=v;}
